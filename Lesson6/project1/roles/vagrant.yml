@@ -1,0 +1,13 @@
+---
+- hosts: all
+  become: true
+  vars:
+    vars_files: vars/vagrantsql.yml
+    document_root: /vagrant
+    www_user: vagrant
+    www_group: vagrant
+  # pre_tasks:
+  #   - name: update apt cache
+  #     apt: update_cache=yes cache_valid_time=3600
+  roles:
+  - { role: geerlingguy.mysql, tags: [mysql]}

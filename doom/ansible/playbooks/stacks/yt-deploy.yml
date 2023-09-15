@@ -1,0 +1,78 @@
+---
+- hosts: storage
+  become: yes
+  tasks:
+    - name: Create Directories for Youtrack Stack
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+        owner: '13001'
+        group: '13001'
+      loop:
+        - /srv/doom/yt/cfg
+        - /srv/doom/yt/logs
+        - /srv/doom/yt/data
+        - /srv/doom/yt/backup
+
+    - name: Add NFS exports for Youtrack Stack
+      lineinfile:
+        dest: /etc/exports
+        line: "{{ item }}"
+      with_items:
+        - '/srv/doom/yt/cfg 10.6.0.0/23(rw,sync,no_subtree_check,no_root_squash,no_all_squash)'
+        - '/srv/doom/yt/logs 10.6.0.0/23(rw,sync,no_subtree_check,no_root_squash,no_all_squash)'
+        - '/srv/doom/yt/data 10.6.0.0/23(rw,sync,no_subtree_check,no_root_squash,no_all_squash)'
+        - '/srv/doom/yt/backup 10.6.0.0/23(rw,sync,no_subtree_check,no_root_squash,no_all_squash)'
+
+    - name: Reload NFS Shares
+      command: exportfs -rv
+
+    - name: Add Youtrack Config Files & Crack
+      copy:
+        src: "{{ item }}"
+        dest: /srv/doom/yt/cfg/
+        mode: 0644
+      loop:
+        - source/ja-netfilter.tar.gz
+        - configs/yt/youtrack.jvmoptions
+
+    - name: Extract Crack
+      shell:
+         chdir: /srv/doom/yt/cfg
+         cmd: tar -xvpf ja-netfilter.tar.gz
+
+    - name: Remove Crack Archive
+      shell:
+         chdir: /srv/doom/yt/cfg
+         cmd: rm -rf ja-netfilter.tar.gz
+
+    - name: Add Activation Crack to YouTrack jvmoptions
+      lineinfile:
+        dest: /srv/doom/yt/cfg/youtrack.jvmoptions
+        line: "-javaagent:/opt/youtrack/conf/ja-netfilter/ja-netfilter.jar"
+
+- hosts: master
+  become: yes
+  vars_files:
+    - ../../vars/host_vars.yml
+    - ../../secrets/secrets.inc
+  tasks:
+    - name: Create deploy directory
+      file:
+        path: ~/docker
+        state: directory
+        mode: '0755'
+
+    - name: Copy YouTrack Deployment File
+      template:
+        src: deploys/yt.yml.j2
+        dest: ~/docker/yt.yml
+
+    - name: Deploy YouTrack service
+      shell: docker stack deploy -c ~/docker/yt.yml yt
+
+    - name: Remove YouTrack deploy file
+      file:
+        path: ~/docker/yt.yml
+        state: absent

@@ -1,0 +1,16 @@
+---
+- hosts: master
+  become: yes
+  vars_files:
+    - ../../secrets/secrets.inc
+  tasks:
+    - name: Create certificate storage directory
+      file:
+        path: /srv/certs
+        state: directory
+
+    - name: Create private key with password protected
+      command: "openssl genrsa -aes256 -passout pass:{{ sp_pass }} -out /srv/certs/ca-key.pem 4096"
+
+    - name: Create self-signed CA certificate
+      command: "openssl req -new -x509 -days 3650 -key /srv/certs/ca-key.pem -sha256 -out /srv/certs/ca.pem -passin pass:{{ sp_pass }} -subj '/C=RU/ST=Russia Federation/L=Moscow/O=Doom Co. Ltd/OU=IT/emailAddress=darkman@meganet.ru/CN=Doom CA'"

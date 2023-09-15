@@ -1,0 +1,15 @@
+global:
+  scrape_interval:     15s
+
+scrape_configs:
+  - job_name: "prometheus"
+    scrape_interval: 5s
+    static_configs:
+    - targets: ["localhost:9090"]
+  {% for node in nodes %}
+
+  - job_name: "{{ node.job_name }}"
+    static_configs:
+    - targets: ["{{ node.service_name }}:9100"]
+
+  {% endfor %}

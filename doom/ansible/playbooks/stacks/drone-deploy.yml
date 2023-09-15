@@ -1,0 +1,25 @@
+---
+- hosts: master
+  become: yes
+  vars_files:
+    - ../../vars/host_vars.yml
+    - ../../secrets/secrets.inc
+  tasks:
+    - name: Create deploy directory
+      file:
+        path: ~/docker
+        state: directory
+        mode: '0755'
+
+    - name: Copy drone deployment file
+      template:
+        src: deploys/drone.yml.j2
+        dest: ~/docker/drone.yml
+
+    - name: Deploy drone service
+      shell: docker stack deploy -c ~/docker/drone.yml drone
+
+    - name: Remove drone deploy file
+      file:
+        path: ~/docker/drone.yml
+        state: absent

@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  youtrack:
+    container_name: 'youtrack'
+    image: jetbrains/youtrack:2022.2.55618
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik-net
+        - traefik.constraint-label=traefik-net
+        - traefik.http.routers.yt-http.rule=Host(`{{ yt_hname }}`)
+        - traefik.http.routers.yt-http.entrypoints=http
+        - traefik.http.routers.yt-http.middlewares=https-redirect
+        - traefik.http.routers.yt-https.rule=Host(`{{ yt_hname }}`)
+        - traefik.http.routers.yt-https.entrypoints=https
+        - traefik.http.routers.yt-https.tls=true
+        - traefik.http.routers.yt-https.tls.certresolver=le
+        - traefik.http.services.youtrack.loadbalancer.server.port=8080
+    volumes:
+      - yt_data:/opt/youtrack/data
+      - yt_cfg:/opt/youtrack/conf
+      - yt_log:/opt/youtrack/logs
+      - yt_backup:/opt/youtrack/backups
+    networks:
+      - jetbrains
+      - traefik-net
+
+  teamcity:
+    container_name: 'teamcity'
+    image: jetbrains/teamcity-server:2022.04.4
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik-net
+        - traefik.constraint-label=traefik-net
+        - traefik.http.routers.tc-http.rule=Host(`{{ tc_hname }}`)
+        - traefik.http.routers.tc-http.entrypoints=http
+        - traefik.http.routers.tc-http.middlewares=https-redirect
+        - traefik.http.routers.tc-https.rule=Host(`{{ tc_hname }}`)
+        - traefik.http.routers.tc-https.entrypoints=https
+        - traefik.http.routers.tc-https.tls=true
+        - traefik.http.routers.tc-https.tls.certresolver=le
+        - traefik.http.services.teamcity.loadbalancer.server.port=8111
+    volumes:
+      - tc_data:/data/teamcity_server/datadir
+      - tc_log:/opt/youtrack/logs
+    networks:
+      - jetbrains
+      - pgsql
+      - traefik-net
+
+volumes:
+  tc_data:
+    name: tc_data
+    driver_opts:
+      type: nfs
+      o: nfsvers=4,addr={{ nfs_addr }},rw
+      device: ':/srv/tc/data'
+
+  tc_log:
+    name: tc_log
+    driver_opts:
+      type: nfs
+      o: nfsvers=4,addr={{ nfs_addr }},rw
+      device: ':/srv/tc/logs'
+
+  yt_cfg:
+    name: yt_cfg
+    driver_opts:
+      type: nfs
+      o: nfsvers=4,addr={{ nfs_addr }},rw
+      device: ':/srv/yt/cfg'
+
+  yt_log:
+    name: yt_log
+    driver_opts:
+      type: nfs
+      o: nfsvers=4,addr={{ nfs_addr }},rw
+      device: ':/srv/yt/logs'
+
+  yt_data:
+    name: yt_data
+    driver_opts:
+      type: nfs
+      o: nfsvers=4,addr={{ nfs_addr }},rw
+      device: ':/srv/yt/data'
+
+  yt_backup:
+    name: yt_backup
+    driver_opts:
+      type: nfs
+      o: nfsvers=4,addr={{ nfs_addr }},rw
+      device: ':/srv/yt/backup'
+
+networks:
+  jetbrains:
+    name: jetbrains
+    driver: overlay
+    attachable: true
+
+  pgsql:
+    external: true
+
+  traefik-net:
+    external: true

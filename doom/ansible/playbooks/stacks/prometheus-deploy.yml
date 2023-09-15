@@ -1,0 +1,68 @@
+---
+- hosts: storage
+  become: yes
+  vars_files:
+    - ../../vars/prom-vars.yml
+  tasks:
+    - name: Create Directories for Prometheus Stack
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - /srv/doom/mon/prom/cfg
+        - /srv/doom/mon/prom/data
+        - /srv/doom/mon/graf/cfg/provisioning
+        - /srv/doom/mon/graf/data
+
+    - name: Add NFS exports for Prometheus Stack
+      lineinfile:
+        dest: /etc/exports
+        line: "{{ item }}"
+      with_items:
+        - '/srv/doom/mon/prom/cfg 10.6.0.0/23(rw,sync,no_subtree_check,no_root_squash,no_all_squash)'
+        - '/srv/doom/mon/prom/data 10.6.0.0/23(rw,sync,no_subtree_check,no_root_squash,no_all_squash)'
+        - '/srv/doom/mon/graf/cfg 10.6.0.0/23(rw,sync,no_subtree_check,no_root_squash,no_all_squash)'
+        - '/srv/doom/mon/graf/data 10.6.0.0/23(rw,sync,no_subtree_check,no_root_squash,no_all_squash)'
+
+    - name: Reload NFS Shares
+      command: exportfs -rv
+
+    - name: Generate Prometheus Config File
+      template:
+        src: configs/prom/prometheus.yml.j2
+        dest: /srv/doom/mon/prom/cfg/prometheus.yml
+
+    - name: Copy Grafana defaults config files
+      copy:
+        src: "{{ item }}"
+        dest: /srv/doom/mon/graf/cfg
+        mode: 0644
+      loop:
+        - configs/graf/grafana.ini
+        - configs/graf/ldap.toml
+
+- hosts: master
+  become: yes
+  vars_files:
+    - ../../vars/prom-vars.yml
+    - ../../vars/host_vars.yml
+  tasks:
+    - name: Create deploy directory
+      file:
+        path: ~/docker
+        state: directory
+        mode: '0755'
+
+    - name: Copy Monitoring deployment file
+      template:
+        src: deploys/mon.yml.j2
+        dest: ~/docker/mon.yml
+
+    - name: Deploy monitoring service
+      shell: docker stack deploy -c ~/docker/mon.yml mon
+
+    - name: Remove monitoring delpoy file
+      file:
+        state: absent
+        path: "~/docker/mon.yml"

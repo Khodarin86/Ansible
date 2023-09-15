@@ -1,0 +1,34 @@
+---
+- hosts: master
+  become: yes
+  vars_files:
+    - ../../secrets/secrets.inc
+  tasks:
+    - name: Create private key for server
+      command: "openssl genrsa -out /srv/certs/server-key.pem 4096"
+
+    - name: Create certificate signing request (CSR) for new server certificate
+      command: "openssl req -subj '/CN=doc01.doom.su' -sha256 -new -key /srv/certs/server-key.pem -out /srv/certs/server.csr"
+
+    - name: Create Extfile
+      file:
+        state: touch
+        path: "/srv/certs/extfile.cnf"
+
+    - name: Add alt name to extfile
+      lineinfile:
+        dest: "/srv/certs/extfile.cnf"
+        line: "subjectAltName = DNS:doc01.doom.su,IP:192.168.122.21,IP:127.0.0.1\nextendedKeyUsage = serverAuth"
+
+    - name: Create the server certificate
+      command: "openssl x509 -req -days 365 -sha256 -in /srv/certs/server.csr -CA /srv/certs/ca.pem -CAkey /srv/certs/ca-key.pem -CAcreateserial -out /srv/certs/server-cert.pem -extfile /srv/certs/extfile.cnf -passin pass:{{ sp_pass }}"
+
+    - name: Remove extfile
+      file:
+        state: absent
+        path: "/srv/certs/extfile.cnf"
+
+    - name: Remove server csr
+      file:
+        state: absent
+        path: "/srv/certs/server.csr"

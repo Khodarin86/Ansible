@@ -1,0 +1,62 @@
+version: '3.8'
+services:
+  traefik:
+    image: traefik:v2.9
+    ports:
+      - 80:80
+      - 443:443
+      - 2224:2224
+    deploy:
+      placement:
+        constraints:
+          - node.labels.traefik-net.traefik-net-certificates == true
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik-net
+        - traefik.constraint-label=traefik-net
+        - traefik.http.middlewares.admin-auth.basicauth.users={{ sp_user }}:{{ passwd_hash }}
+        - traefik.http.middlewares.https-redirect.redirectscheme.scheme=https
+        - traefik.http.middlewares.https-redirect.redirectscheme.permanent=true
+        - traefik.http.routers.traefik-net-http.rule=Host(`{{ ing_hname }}`)
+        - traefik.http.routers.traefik-net-http.entrypoints=http
+        - traefik.http.routers.traefik-net-http.middlewares=https-redirect
+        - traefik.http.routers.traefik-net-https.rule=Host(`{{ ing_hname }}`)
+        - traefik.http.routers.traefik-net-https.entrypoints=https
+        - traefik.http.routers.traefik-net-https.tls=true
+        - traefik.http.routers.traefik-net-https.service=api@internal
+        - traefik.http.routers.traefik-net-https.tls.certresolver=le
+        - traefik.http.routers.traefik-net-https.middlewares=admin-auth
+        - traefik.http.middlewares.traefik-ratelimit.ratelimit.average=100
+        - traefik.http.middlewares.traefik-ratelimit.ratelimit.burst=50
+        - traefik.http.services.traefik-net.loadbalancer.server.port=8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-cert:/certificates
+    command:
+      - --providers.docker
+      - --providers.docker.constraints=Label(`traefik.constraint-label`, `traefik-net`)
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.swarmmode
+      - --entrypoints.http.address=:80
+      - --entrypoints.https.address=:443
+      - --entrypoints.ssh.address=:2224
+      - --certificatesresolvers.le.acme.email=darkman@meganet.ru
+      - --certificatesresolvers.le.acme.storage=/certificates/acme.json
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      - --accesslog
+      - --log
+      - --api
+    networks:
+      - traefik-net
+
+volumes:
+  traefik-cert:
+    name: traefik-cert
+    driver_opts:
+      type: nfs
+      o: nfsvers=4,addr={{ nfs_host }},rw
+      device: ':/srv/doom/traefik'
+
+networks:
+  traefik-net:
+    external: true

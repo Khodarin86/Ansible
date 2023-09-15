@@ -1,0 +1,19 @@
+---
+- hosts: swarm
+  become: yes
+  tasks:
+    - name: Install Docker Community Edition
+      apt:
+        update_cache: true
+        name: docker-ce
+        state: present
+
+- hosts: storage
+  become: yes
+  tasks:
+    - name: Install NFS Server on 'storage'
+      apt:
+        update_cache: true
+        name: nfs-kernel-server
+        state: present
+

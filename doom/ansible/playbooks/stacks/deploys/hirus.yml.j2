@@ -1,0 +1,83 @@
+version: "3.9"
+
+x-api-env: &api-env
+  SA_URL: "postgresql+asyncpg://api:Wilnukr_23@10.6.0.80:5432/api"
+  LSTN_MEGA_DSN: "postgres://api:Wilnukr_23@10.6.0.80/api"
+  JWT_SECRET_KEY: "Z2cNlGobkK9xseIPyyqq6PhT9c6hseaj"
+  SECURE_COOKIES: "true"
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: 'redis'
+    networks:
+      - hirus
+    restart: always
+
+  front:
+    image: git.hirus.ru/hirus/www:latest
+    container_name: 'www'
+    deploy:
+      placement:
+        constraints:
+          - node.role == worker
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik-net
+        - traefik.constraint-label=traefik-net
+
+        - traefik.http.middlewares.https-redirect.redirectscheme.scheme=https
+        - traefik.http.middlewares.https-redirect.redirectscheme.permanent=true
+
+        # Hirus
+        - traefik.http.routers.hirus-http.rule=Host(`hirus.ru`)
+        - traefik.http.routers.hirus-http.entrypoints=http
+        - traefik.http.routers.hirus-http.middlewares=https-redirect
+        - traefik.http.routers.hirus-https.rule=Host(`hirus.ru`)
+        - traefik.http.routers.hirus-https.entrypoints=https
+        - traefik.http.routers.hirus-https.tls=true
+        - traefik.http.routers.hirus-https.tls.certresolver=le
+
+        # HiRUS WWW
+        - traefik.http.routers.hirus-httpw.rule=Host(`www.hirus.ru`)
+        - traefik.http.routers.hirus-httpw.entrypoints=http
+        - traefik.http.routers.hirus-httpw.middlewares=https-redirect
+        - traefik.http.routers.hirus-httpws.rule=Host(`www.hirus.ru`)
+        - traefik.http.routers.hirus-httpws.entrypoints=https
+        - traefik.http.routers.hirus-httpws.tls=true
+        - traefik.http.routers.hirus-httpws.tls.certresolver=le
+
+        # Loadbalancer
+        - traefik.http.services.hirus.loadbalancer.server.port=80
+
+        # Autoredeploy
+        - swarmpit.service.deployment.autoredeploy=true
+    networks:
+      - traefik-net
+      - hirus
+
+  api01:
+    image: git.hirus.ru/hirus/api:latest
+    container_name: 'api01'
+    environment:
+      <<: *api-env
+    deploy:
+      placement:
+        constraints:
+          - node.role == worker
+      labels:
+        - swarmpit.service.deployment.autoredeploy=true
+    command: /bin/bash -c "/env/bin/uvicorn api:app --ws auto --host 0.0.0.0 --port 5000 --reload --log-config ./logging.json"
+    depends_on:
+      - redis
+    networks:
+      - hirus
+    restart: on-failure
+
+networks:
+  hirus:
+    driver: overlay
+    attachable: true
+
+  traefik-net:
+    external: true

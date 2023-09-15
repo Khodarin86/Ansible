@@ -1,0 +1,16 @@
+---
+- hosts: master
+  become: yes
+  tasks:
+    - name: Replace line for start docker with TLS Auth
+      lineinfile:
+        path: /lib/systemd/system/docker.service
+        regexp: '^ExecStart(.*)$'
+        line: 'ExecStart=/usr/bin/dockerd --tlsverify --tlscacert=/srv/certs/ca.pem --tlscert=/srv/certs/server-cert.pem --tlskey=/srv/certs/server-key.pem -H fd:// -H tcp://192.168.122.21:2376 --containerd=/run/containerd/containerd.sock'
+        backrefs: yes
+
+    - name: Restart Docker with TLS Auth
+      systemd:
+        state: restarted
+        daemon_reload: yes
+        name: docker

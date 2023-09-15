@@ -1,0 +1,11 @@
+---
+- hosts: master
+  become: yes
+  vars_files:
+    - ../../vars/host_vars.yml
+  tasks:
+    - name: Init Swarm Cluster
+      shell: docker swarm init --advertise-addr {{ ctl_host }} >> cluster_init.txt
+      args:
+        chdir: $HOME
+        creates: cluster_init.txt

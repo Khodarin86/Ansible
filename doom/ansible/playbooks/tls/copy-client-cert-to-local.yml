@@ -1,0 +1,21 @@
+---
+- hosts: master
+  become: yes
+  tasks:
+    - name: Copy CA Certificate from master
+      fetch:
+        src: /srv/certs/ca.pem
+        dest: ~/.docker/
+        flat: true
+
+    - name: Copy Client Key from master
+      fetch:
+        src: /srv/certs/key.pem
+        dest: ~/.docker/
+        flat: true
+
+    - name: Copy Client Certificate from master
+      fetch:
+        src: /srv/certs/cert.pem
+        dest: ~/.docker/
+        flat: true

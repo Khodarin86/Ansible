@@ -1,0 +1,86 @@
+version: '3.8'
+services:
+  gitea:
+    image: gitea/gitea:1.18
+    container_name: 'gitea'
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+
+      - GITEA__server__DOMAIN={{ git_hname }}
+      - GITEA__server__SSH_DOMAIN={{ git_hname }}
+      - GITEA__server__HTTP_PORT=80
+      - GITEA__server__ROOT_URL=https://{{ git_hname }}/
+      - GITEA__server__SSH_PORT=2224
+      - GITEA__server__SSH_LISTEN_PORT=22
+      - GITEA__server__DISABLE_SSH=false
+
+      - GITEA__database__DB_TYPE=postgres
+      - GITEA__database__HOST={{ db_host }}:5432
+      - GITEA__database__NAME={{ db_base }}
+      - GITEA__database__USER={{ db_user }}
+      - GITEA__database__SCHEMA=gitea
+      - GITEA__database__PASSWD={{ db_pass }}
+      - GITEA__database__CHARSET=utf8
+
+      - GITEA__mailer__ENABLED=true
+      - GITEA__mailer__FROM=git@doom.su
+      - GITEA__mailer__MAILER_TYPE=smtp
+      - GITEA__mailer__HOST=mx.meganet.ru:465
+      - GITEA__mailer__IS_TLS_ENABLED=true
+      - GITEA__mailer__USER=git@doom.su
+      - GITEA__mailer__PASSWD={{ mail_pass }}
+      - GITEA__mailer__HELO_HOSTNAME=git.doom.su
+
+      - GITEA__webhook__ALLOWED_HOST_LIST=*.doom.su, 10.0.0.0/8
+
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik-net
+        - traefik.constraint-label=traefik-net
+
+        - traefik.http.routers.gitea-http.rule=Host(`{{ git_hname }}`)
+        - traefik.http.routers.gitea-http.entrypoints=http
+        - traefik.http.routers.gitea-http.middlewares=https-redirect
+        - traefik.http.routers.gitea-https.rule=Host(`{{ git_hname }}`)
+        - traefik.http.routers.gitea-https.entrypoints=https
+        - traefik.http.routers.gitea-https.tls=true
+        - traefik.http.routers.gitea-https.tls.certresolver=le
+        - traefik.http.services.gitea.loadbalancer.server.port=80
+
+        - traefik.tcp.routers.gitea-ssh.rule=HostSNI(`*`)
+        - traefik.tcp.routers.gitea-ssh.entrypoints=ssh
+        - traefik.tcp.routers.gitea-ssh.service=gitea-ssh-svc
+        - traefik.tcp.services.gitea-ssh-svc.loadbalancer.server.port=22
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    volumes:
+      - gitea-data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - gitea
+      - traefik-net
+
+volumes:
+  gitea-data:
+    name: gitea-data
+    driver_opts:
+      type: nfs
+      o: nfsvers=4,addr={{ nfs_host }},rw
+      device: ':/srv/doom/gitea'
+
+networks:
+  gitea:
+    name: gitea
+    driver: overlay
+    attachable: true
+
+  traefik-net:
+    external: true

@@ -1,0 +1,57 @@
+---
+- hosts: storage
+  become: yes
+  tasks:
+    - name: Create Traefik certificate storage
+      file:
+        path: /srv/doom/traefik
+        state: directory
+        mode: '0755'
+
+    - name: Add NFS exports for traefik
+      lineinfile:
+        dest: /etc/exports
+        line: '/srv/doom/traefik 192.168.122.1/24(rw,sync,no_subtree_check,no_root_squash,no_all_squash)'
+
+    - name: Reload NFS Shares
+      command: exportfs -rv
+
+- hosts: master
+  become: yes
+  vars_files:
+    - ../../secrets/secrets.inc
+    - ../../vars/host_vars.yml
+  tasks:
+    - name: Create deploy directory
+      file:
+        path: ~/docker
+        state: directory
+        mode: '0755'
+
+    - name: Create 'traefic-net' network overlay
+      shell: "docker network create --driver=overlay traefik-net || true"
+      run_once: true
+
+    - name: Set traefik lable
+      shell: "docker node update --label-add traefik-net.traefik-net-certificates=true doc01.doom.su"
+
+    - name: Get User Password Hashed
+      shell: openssl passwd -apr1 {{ sp_pass }}
+      register: user_pass_hash
+
+    - name: Get Password Hash for user
+      set_fact:
+        passwd_hash: "{{user_pass_hash.stdout_lines[0].replace('$', '$$')}}"
+
+    - name: Copy Traefik deployment file
+      template:
+        src: deploys/traefik.yml.j2
+        dest: ~/docker/traefik.yml
+
+    - name: Deploy traefik service
+      shell: docker stack deploy -c ~/docker/traefik.yml traefik
+
+    - name: Remove Traefik delpoy file
+      file:
+        state: absent
+        path: "~/docker/traefik.yml"

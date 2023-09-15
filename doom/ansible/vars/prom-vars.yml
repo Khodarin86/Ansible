@@ -1,0 +1,10 @@
+nodes:
+  - node_name: doc01.doom.su
+    service_name: node-doc01
+    job_name: doc01
+  - node_name: doc02.doom.su
+    service_name: node-doc02
+    job_name: doc02
+  - node_name: doc03.doom.su
+    service_name: node-doc03
+    job_name: doc03

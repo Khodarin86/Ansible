@@ -1,0 +1,19 @@
+---
+- hosts: swarm
+  become: yes
+  tasks:
+    - name: Install APT Transport HTTPS
+      apt:
+        name: apt-transport-https
+        state: present
+
+    - name: Add Docker Community APT Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker CE Repository
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+        filename: 'docker-ce'
+        state: present

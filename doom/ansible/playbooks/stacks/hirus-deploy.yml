@@ -1,0 +1,23 @@
+---
+- hosts: master
+  become: yes
+  vars:
+  tasks:
+    - name: Create deploy directory
+      file:
+        path: ~/docker
+        state: directory
+        mode: '0755'
+
+    - name: Copy HiRUS Deployment File
+      template:
+        src: deploys/hirus.yml.j2
+        dest: ~/docker/hirus.yml
+
+    - name: Deploy HiRUS service
+      shell: docker stack deploy --with-registry-auth -c ~/docker/hirus.yml hirus
+
+    - name: Remove HiRUS deploy file
+      file:
+        path: ~/docker/hirus.yml
+        state: absent

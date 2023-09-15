@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  youtrack:
+    container_name: 'youtrack'
+    image: jetbrains/youtrack:2022.2.65377
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik-net
+        - traefik.constraint-label=traefik-net
+        - traefik.http.routers.yt-http.rule=Host(`{{ yt_hname }}`)
+        - traefik.http.routers.yt-http.entrypoints=http
+        - traefik.http.routers.yt-http.middlewares=https-redirect
+        - traefik.http.routers.yt-https.rule=Host(`{{ yt_hname }}`)
+        - traefik.http.routers.yt-https.entrypoints=https
+        - traefik.http.routers.yt-https.tls=true
+        - traefik.http.routers.yt-https.tls.certresolver=le
+        - traefik.http.services.youtrack.loadbalancer.server.port=8080
+    volumes:
+      - yt_data:/opt/youtrack/data
+      - yt_cfg:/opt/youtrack/conf
+      - yt_log:/opt/youtrack/logs
+      - yt_backup:/opt/youtrack/backups
+    networks:
+      - yt
+      - traefik-net
+
+volumes:
+  yt_cfg:
+    name: yt_cfg
+    driver_opts:
+      type: nfs
+      o: nfsvers=4,addr={{ nfs_host }},rw
+      device: ':/srv/doom/yt/cfg'
+
+  yt_log:
+    name: yt_log
+    driver_opts:
+      type: nfs
+      o: nfsvers=4,addr={{ nfs_host }},rw
+      device: ':/srv/doom/yt/logs'
+
+  yt_data:
+    name: yt_data
+    driver_opts:
+      type: nfs
+      o: nfsvers=4,addr={{ nfs_host }},rw
+      device: ':/srv/doom/yt/data'
+
+  yt_backup:
+    name: yt_backup
+    driver_opts:
+      type: nfs
+      o: nfsvers=4,addr={{ nfs_host }},rw
+      device: ':/srv/doom/yt/backup'
+
+networks:
+  yt:
+    name: yt
+    driver: overlay
+    attachable: true
+
+  traefik-net:
+    external: true

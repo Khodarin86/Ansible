@@ -1,0 +1,13 @@
+sp_user: monster
+db_user: cicd
+db_base: gitea
+db_ci: drone
+ctl_host: 192.168.122.21
+nfs_host: 192.168.122.24
+db_host: 192.168.122.24
+git_hname: git.doom.su
+yt_hname: yt.doom.su
+ci_hname: ci.doom.su
+mon_hname: mon.doom.su
+ing_hname: ing.doom.su
+swp_hname: swp.doom.su
